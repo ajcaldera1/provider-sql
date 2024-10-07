@@ -24,6 +24,7 @@ type postgresDB struct {
 	endpoint string
 	port     string
 	sslmode  string
+        db       *sql.DB
 }
 
 // New returns a new PostgreSQL database client. The default database name is
@@ -38,12 +39,46 @@ func New(creds map[string][]byte, database, sslmode string) xsql.DB {
 	password := string(creds[xpv1.ResourceCredentialsSecretPasswordKey])
 	dsn := DSN(username, password, endpoint, port, database, sslmode)
 
+        db, err := openDB(dsn, true)
+
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			return err
+		}
+	}(db)
+
 	return postgresDB{
+                db:       db,
+                err:      err,
 		dsn:      dsn,
 		endpoint: endpoint,
 		port:     port,
 		sslmode:  sslmode,
 	}
+}
+
+// openDB returns a new database connection 
+func openDB(dsn string, setLimits bool) (*sql.DB, error) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	if setLimits {
+		db.SetMaxOpenConns(5)
+		db.SetMaxIdleConns(2)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = db.PingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 // DSN returns the DSN URL
@@ -63,12 +98,16 @@ func DSN(username, password, endpoint, port, database, sslmode string) string {
 // ExecTx executes an array of queries, committing if all are successful and
 // rolling back immediately on failure.
 func (c postgresDB) ExecTx(ctx context.Context, ql []xsql.Query) error {
-	d, err := sql.Open("postgres", c.dsn)
+        if c.db = nil || c.err != nil {
+           return c.err
+	}
+
+	err = c.db.PingContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	tx, err := d.BeginTx(ctx, nil)
+	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -76,7 +115,6 @@ func (c postgresDB) ExecTx(ctx context.Context, ql []xsql.Query) error {
 	// Rollback or Commit based on error state. Defer close in defer to make
 	// sure the connection is always closed.
 	defer func() {
-		defer d.Close() //nolint:errcheck
 		if err != nil {
 			tx.Rollback() //nolint:errcheck
 			return
@@ -94,37 +132,46 @@ func (c postgresDB) ExecTx(ctx context.Context, ql []xsql.Query) error {
 
 // Exec the supplied query.
 func (c postgresDB) Exec(ctx context.Context, q xsql.Query) error {
-	d, err := sql.Open("postgres", c.dsn)
+        if c.db = nil || c.err != nil {
+           return c.err
+	}
+
+	err := c.db.PingContext(ctx)
 	if err != nil {
 		return err
 	}
-	defer d.Close() //nolint:errcheck
 
-	_, err = d.ExecContext(ctx, q.String, q.Parameters...)
+	_, err = c.db.ExecContext(ctx, q.String, q.Parameters...)
 	return err
 }
 
 // Query the supplied query.
 func (c postgresDB) Query(ctx context.Context, q xsql.Query) (*sql.Rows, error) {
-	d, err := sql.Open("postgres", c.dsn)
+        if c.err != nil || c.db = nil {
+           return c.err
+	}
+
+	err := c.db.PingContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer d.Close() //nolint:errcheck
 
-	rows, err := d.QueryContext(ctx, q.String, q.Parameters...)
+	rows, err := c.db.QueryContext(ctx, q.String, q.Parameters...)
 	return rows, err
 }
 
 // Scan the results of the supplied query into the supplied destination.
 func (c postgresDB) Scan(ctx context.Context, q xsql.Query, dest ...interface{}) error {
-	db, err := sql.Open("postgres", c.dsn)
+        if c.db = nil || c.err != nil {
+           return c.err
+	}
+
+	err := c.db.PingContext(ctx)
 	if err != nil {
 		return err
 	}
-	defer db.Close() //nolint:errcheck
 
-	return db.QueryRowContext(ctx, q.String, q.Parameters...).Scan(dest...)
+	return c.db.QueryRowContext(ctx, q.String, q.Parameters...).Scan(dest...)
 }
 
 // GetConnectionDetails returns the connection details for a user of this DB
