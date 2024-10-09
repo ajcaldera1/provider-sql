@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
+	"time"
 
 	"github.com/crossplane-contrib/provider-sql/pkg/clients/xsql"
 	"github.com/lib/pq"
@@ -20,11 +21,12 @@ const (
 )
 
 type postgresDB struct {
+	db       *sql.DB
+	err      error
 	dsn      string
 	endpoint string
 	port     string
 	sslmode  string
-        db       *sql.DB
 }
 
 // New returns a new PostgreSQL database client. The default database name is
@@ -39,18 +41,18 @@ func New(creds map[string][]byte, database, sslmode string) xsql.DB {
 	password := string(creds[xpv1.ResourceCredentialsSecretPasswordKey])
 	dsn := DSN(username, password, endpoint, port, database, sslmode)
 
-        db, err := openDB(dsn, true)
+	db, err := openDB(dsn, true)
 
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {
-			return err
+			return
 		}
 	}(db)
 
 	return postgresDB{
-                db:       db,
-                err:      err,
+		db:       db,
+		err:      err,
 		dsn:      dsn,
 		endpoint: endpoint,
 		port:     port,
@@ -58,7 +60,7 @@ func New(creds map[string][]byte, database, sslmode string) xsql.DB {
 	}
 }
 
-// openDB returns a new database connection 
+// openDB returns a new database connection
 func openDB(dsn string, setLimits bool) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -98,11 +100,11 @@ func DSN(username, password, endpoint, port, database, sslmode string) string {
 // ExecTx executes an array of queries, committing if all are successful and
 // rolling back immediately on failure.
 func (c postgresDB) ExecTx(ctx context.Context, ql []xsql.Query) error {
-        if c.db = nil || c.err != nil {
-           return c.err
+	if c.db == nil || c.err != nil {
+		return c.err
 	}
 
-	err = c.db.PingContext(ctx)
+	err := c.db.PingContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -132,8 +134,8 @@ func (c postgresDB) ExecTx(ctx context.Context, ql []xsql.Query) error {
 
 // Exec the supplied query.
 func (c postgresDB) Exec(ctx context.Context, q xsql.Query) error {
-        if c.db = nil || c.err != nil {
-           return c.err
+	if c.db == nil || c.err != nil {
+		return c.err
 	}
 
 	err := c.db.PingContext(ctx)
@@ -147,8 +149,8 @@ func (c postgresDB) Exec(ctx context.Context, q xsql.Query) error {
 
 // Query the supplied query.
 func (c postgresDB) Query(ctx context.Context, q xsql.Query) (*sql.Rows, error) {
-        if c.err != nil || c.db = nil {
-           return c.err
+	if c.err != nil || c.db == nil {
+		return nil, c.err
 	}
 
 	err := c.db.PingContext(ctx)
@@ -162,8 +164,8 @@ func (c postgresDB) Query(ctx context.Context, q xsql.Query) (*sql.Rows, error) 
 
 // Scan the results of the supplied query into the supplied destination.
 func (c postgresDB) Scan(ctx context.Context, q xsql.Query, dest ...interface{}) error {
-        if c.db = nil || c.err != nil {
-           return c.err
+	if c.db == nil || c.err != nil {
+		return c.err
 	}
 
 	err := c.db.PingContext(ctx)
