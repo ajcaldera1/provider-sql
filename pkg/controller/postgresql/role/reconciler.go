@@ -200,6 +200,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			Replication: new(bool),
 			BypassRls:   new(bool),
 		},
+		ConnectionLimit:     new(int),
 	}
 
 	query := "SELECT " +
@@ -400,10 +401,11 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		// Update state to reflect the current configuration parameters
 		cr.Status.AtProvider.ConfigurationParameters = cr.Spec.ForProvider.ConfigurationParameters
 	}
-	cl := cr.Spec.ForProvider.ConnectionLimit
-	if cl != nil && cr.Status.AtProvider.ConnectionLimit != cr.Spec.ForProvider.ConnectionLimit {
+	new_cl := cr.Spec.ForProvider.ConnectionLimit
+        current_cl := cr.Status.AtProvider.ConnectionLimit
+	if (new_cl != nil && current_cl != nil) && (int64(*current_cl) != int64(*new_cl)) {
 		if err := c.db.Exec(ctx, xsql.Query{
-			String: fmt.Sprintf("ALTER ROLE %s CONNECTION LIMIT %d", crn, int64(*cl)),
+			String: fmt.Sprintf("ALTER ROLE %s CONNECTION LIMIT %d", crn, int64(*new_cl)),
 		}); err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateRole)
 		}
