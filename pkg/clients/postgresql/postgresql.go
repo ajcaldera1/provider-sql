@@ -43,13 +43,6 @@ func New(creds map[string][]byte, database, sslmode string) xsql.DB {
 
 	db, err := openDB(dsn, true)
 
-	defer func(db *sql.DB) {
-		err := db.Close()
-		if err != nil {
-			return
-		}
-	}(db)
-
 	return postgresDB{
 		db:       db,
 		err:      err,
