@@ -743,7 +743,7 @@ func (in *RoleObservation) DeepCopyInto(out *RoleObservation) {
 	*out = *in
 	if in.ConnectionLimit != nil {
 		in, out := &in.ConnectionLimit, &out.ConnectionLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PrivilegesAsClauses != nil {
@@ -777,7 +777,7 @@ func (in *RoleParameters) DeepCopyInto(out *RoleParameters) {
 	*out = *in
 	if in.ConnectionLimit != nil {
 		in, out := &in.ConnectionLimit, &out.ConnectionLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	in.Privileges.DeepCopyInto(&out.Privileges)
