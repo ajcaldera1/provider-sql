@@ -93,6 +93,7 @@ spec:
                     type: array
                   connectionLimit:
                     description: ConnectionLimit to be applied to the role.
+                    format: int32
                     type: integer
                   passwordSecretRef:
                     description: |-
@@ -335,6 +336,7 @@ spec:
                     type: array
                   connectionLimit:
                     description: ConnectionLimit represents the applied connectionlimit
+                    format: int32
                     type: integer
                   privilegesAsClauses:
                     description: |-
