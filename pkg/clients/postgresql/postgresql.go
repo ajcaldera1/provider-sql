@@ -60,9 +60,14 @@ func openDB(dsn string, setLimits bool) (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Since we are now using connection pooling, establish some sensible defaults for connections
+	// Ideally these parameters would be set in the config section for the provider, but that
+	// can be deferred to a later time.
 	if setLimits {
 		db.SetMaxOpenConns(5)
 		db.SetMaxIdleConns(2)
+		db.SetConnMaxIdleTime(2 * time.Minute)
+		db.SetConnMaxLifetime(10 * time.Minute)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
